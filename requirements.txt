@@ -1,3 +1,5 @@
+clarifai==9.8.1
+clarifai-grpc
 numpy
 matplotlib
 plotly
