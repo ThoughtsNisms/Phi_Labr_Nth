@@ -1,2 +1,6 @@
 clarifai==9.8.1
-streamlit==1.24.0
+clarifai-grpc
+numpy
+matplotlib
+plotly
+clarifai-grpc
