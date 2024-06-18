@@ -1,4 +1,4 @@
-import numpyimport os
+import os
 import requests
 import json
 import numpy as np
@@ -10,7 +10,6 @@ from clarifai_grpc.grpc.api.status import status_pb2, status_code_pb2
 import streamlit as st
 
 # Mandelbulb generation functions
-
 def mandelbulb(x, y, z, power, bailout_radius, max_iterations):
     c = np.array([x, y, z])
     z = c.copy()
@@ -63,7 +62,6 @@ def visualize_mandelbulb(mandelbulb_data):
     fig.show()
 
 # Function to create a module with metadata in Clarifai
-
 def create_module_with_metadata(auth_key, metadata):
     headers = {
         'Authorization': f'Key {auth_key}',
@@ -110,6 +108,7 @@ def render_create_module(auth_key):
 
     # Convert metadata to JSON string
     metadata_json = json.dumps(metadata)
+    st.write("Metadata JSON:", metadata_json)  # Debugging line to check JSON content
 
     # Create module with metadata
     try:
@@ -122,22 +121,69 @@ def render_create_module(auth_key):
         st.error(f"Error while creating module: {str(e)}")
 
 def main():
-    # Constants for Mandelbulb
-    grid_size = 50
-    power = 8
-    bailout_radius = 2
-    max_iterations = 100
+    st.title("Mandelbulb Generator and Clarifai Module Creator")
+
+    # Sidebar inputs for Mandelbulb generation
+    grid_size = st.sidebar.number_input("Grid Size", min_value=10, max_value=100, value=50)
+    power = st.sidebar.number_input("Power", min_value=2, max_value=10, value=8)
+    bailout_radius = st.sidebar.number_input("Bailout Radius", min_value=1.0, max_value=10.0, value=2.0)
+    max_iterations = st.sidebar.number_input("Max Iterations", min_value=10, max_value=1000, value=100)
 
     # Generate and visualize Mandelbulb
-    mandelbulb_data = generate_mandelbulb(grid_size, power, bailout_radius, max_iterations)
-    save_mandelbulb_image(mandelbulb_data, filename="mandelbulb.png")
-    visualize_mandelbulb(mandelbulb_data)
-    
-    # Authentication key for Clarifai
-    auth_key = "92186bbf0c584e378fea53af41f855b3"  # Replace with your actual API key
+    if st.sidebar.button("Generate Mandelbulb"):
+        mandelbulb_data = generate_mandelbulb(grid_size, power, bailout_radius, max_iterations)
+        save_mandelbulb_image(mandelbulb_data, filename="mandelbulb.png")
+        visualize_mandelbulb(mandelbulb_data)
+        st.image("mandelbulb.png", caption="Generated Mandelbulb")
 
-    # Render module creation
-    render_create_module(auth_key)
+    # Form for Clarifai module creation
+    with st.form(key="module_form"):
+        st.write("Clarifai Module Metadata")
+        name = st.text_input("Module Name", value="Phi-Labr^Nth")
+        description = st.text_area("Description", value=(
+            "An advanced AI application that immerses users in the intricate virtual world of Mandelbulb fractals. "
+            "The core functionality revolves around generating, exploring, and manipulating 3D structures within the Mandelbulb space "
+            "under varying environmental parameters. This exploration leverages the mathematical constants Phi (the golden ratio), Pi, "
+            "and the inverse of Pi to simulate organic formations, pressure maintenance, and structural fracturing, respectively."))
+        version = st.text_input("Version", value="1.0.0")
+        author = st.text_input("Author", value="Your Name")
+        license = st.text_input("License", value="MIT")
+        keywords = st.text_area("Keywords", value="AI, Mandelbulb, Fractals, 3D Visualization, Mathematical Constants, Phi, Pi, Inverse Pi")
+        
+        # Clarifai API Key
+        auth_key = st.text_input("Clarifai API Key", type="password")
+        
+        # Submit button
+        submit_button = st.form_submit_button(label="Create Module")
+        
+        if submit_button:
+            metadata = {
+                "name": name,
+                "description": description,
+                "version": version,
+                "author": author,
+                "license": license,
+                "keywords": keywords.split(", "),
+                "dependencies": {
+                    "clarifai": "9.8.1",
+                    "streamlit": "1.24.0",
+                    "numpy": "*",
+                    "matplotlib": "*",
+                    "plotly": "*",
+                    "clarifai-grpc": "*"
+                },
+                "main_file": "mandelbulb_clarifai.py",
+                "entry_points": {
+                    "main": "mandelbulb_clarifai:main"
+                }
+            }
+            
+            # Convert metadata to JSON string
+            metadata_json = json.dumps(metadata)
+            st.write("Metadata JSON:", metadata_json)  # Debugging line to check JSON content
+            
+            # Create module with metadata
+            render_create_module(auth_key)
     
     # Clarifai model prediction using gRPC
     channel = ClarifaiChannel.get_grpc_channel()
@@ -146,7 +192,7 @@ def main():
     model_id = "Proto-Labr-Nth-Guide"
     image_url = "https://s3.amazonaws.com/samples.clarifai.com/featured-models/image-captioning-statue-of-liberty.jpeg"
     api_key = auth_key  # Use the same API key
-
+    
     request = service_pb2.PostModelOutputsRequest(
         model_id=model_id,
         inputs=[
@@ -158,11 +204,12 @@ def main():
     
     try:
         response = stub.PostModelOutputs(request, metadata=metadata)
-        print("Model prediction:", response)
+        st.write("Model prediction:", response)
     except Exception as e:
-        print(f"Error during model prediction: {e}")
+        st.error(f"Error during model prediction: {e}")
 
 if __name__ == "__main__":
     main()
+
 
     
