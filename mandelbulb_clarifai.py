@@ -1,27 +1,20 @@
-import os
-import json
 import numpy as np
 import matplotlib.pyplot as plt
-import plotly.graph_objs as go
+from mpl_toolkits.mplot3d import Axes3D
+import streamlit as st
+from deap import base, creator, tools, algorithms  # import DEAP for evolutionary algorithm
+import requests
+import json
 from clarifai_grpc.channel.clarifai_channel import ClarifaiChannel
 from clarifai_grpc.grpc.api import resources_pb2, service_pb2, service_pb2_grpc
-import streamlit as st
 
-# Mandelbulb generation functions
+# Define the constants
+pi = np.pi
+phi = (1 + np.sqrt(5)) / 2
+inv_pi = 1 / pi
 
+# Mandelbulb generation functions (taken from previous code)
 def mandelbulb(x, y, z, power, bailout_radius, max_iterations):
-    """
-    Generate a Mandelbulb fractal at a given point in 3D space.
-
-    Parameters:
-    - x, y, z: Coordinates in 3D space
-    - power: Exponent for the Mandelbulb formula
-    - bailout_radius: Threshold beyond which the iteration escapes
-    - max_iterations: Maximum number of iterations to compute
-
-    Returns:
-    - i: Number of iterations taken to exceed the bailout radius
-    """
     c = np.array([x, y, z])
     z = c.copy()
     for i in range(max_iterations):
@@ -41,18 +34,6 @@ def mandelbulb(x, y, z, power, bailout_radius, max_iterations):
     return i
 
 def generate_mandelbulb(grid_size, power, bailout_radius, max_iterations):
-    """
-    Generate a 3D Mandelbulb fractal grid.
-
-    Parameters:
-    - grid_size: Number of grid points along each axis
-    - power: Exponent for the Mandelbulb formula
-    - bailout_radius: Threshold beyond which the iteration escapes
-    - max_iterations: Maximum number of iterations to compute
-
-    Returns:
-    - mandelbulb_data: 3D array containing Mandelbulb iteration counts
-    """
     x = np.linspace(-1.5, 1.5, grid_size)
     y = np.linspace(-1.5, 1.5, grid_size)
     z = np.linspace(-1.5, 1.5, grid_size)
@@ -64,52 +45,23 @@ def generate_mandelbulb(grid_size, power, bailout_radius, max_iterations):
     return mandelbulb_data
 
 def save_mandelbulb_image(mandelbulb_data, filename="mandelbulb.png"):
-    """
-    Save a 2D slice of the Mandelbulb fractal as an image.
-
-    Parameters:
-    - mandelbulb_data: 3D array containing Mandelbulb iteration counts
-    - filename: Name of the file to save
-    """
     plt.imshow(mandelbulb_data[:, :, mandelbulb_data.shape[2] // 2], cmap='inferno')
     plt.axis('off')
     plt.savefig(filename, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 def visualize_mandelbulb(mandelbulb_data):
-    """
-    Visualize the entire 3D Mandelbulb fractal using plotly.
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.voxels(mandelbulb_data, edgecolor='k')
+    ax.set_title('Mandelbulb Fractal')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    st.pyplot(fig)
 
-    Parameters:
-    - mandelbulb_data: 3D array containing Mandelbulb iteration counts
-    """
-    fig = go.Figure(data=[go.Volume(
-        x=np.linspace(-1.5, 1.5, mandelbulb_data.shape[0]),
-        y=np.linspace(-1.5, 1.5, mandelbulb_data.shape[1]),
-        z=np.linspace(-1.5, 1.5, mandelbulb_data.shape[2]),
-        value=mandelbulb_data.flatten(),
-        opacity=0.1,
-        surface_count=17
-    )])
-    fig.update_layout(title='Mandelbulb Fractal', scene=dict(
-        xaxis=dict(nticks=10, range=[-1.5, 1.5]),
-        yaxis=dict(nticks=10, range=[-1.5, 1.5]),
-        zaxis=dict(nticks=10, range=[-1.5, 1.5])))
-    fig.show()
-
-# Function to create a module with metadata in Clarifai
-
+# Function to create a module with metadata in Clarifai (taken from previous code)
 def create_module_with_metadata(auth_key, metadata):
-    """
-    Create a module in Clarifai with specified metadata.
-
-    Parameters:
-    - auth_key: API key for Clarifai authentication
-    - metadata: Dictionary containing module metadata
-
-    Returns:
-    - response: HTTP response object from the API
-    """
     headers = {
         'Authorization': f'Key {auth_key}',
         'Content-Type': 'application/json'
@@ -118,52 +70,12 @@ def create_module_with_metadata(auth_key, metadata):
     response = requests.post(url, headers=headers, data=json.dumps(metadata))
     return response
 
-def render_create_module(auth_key, description):
-    """
-    Render a form in Streamlit for creating a module in Clarifai.
-
-    Parameters:
-    - auth_key: API key for Clarifai authentication
-    - description: Description text for the module
-    """
-    # Define default metadata for the module
-    metadata = {
-        "name": "Phi-Labr^Nth",
-        "description": description,
-        "version": "1.0.0",
-        "author": "Your Name",
-        "license": "MIT",
-        "keywords": [
-            "AI",
-            "Mandelbulb",
-            "Fractals",
-            "3D Visualization",
-            "Mathematical Constants",
-            "Phi",
-            "Pi",
-            "Inverse Pi"
-        ],
-        "dependencies": {
-            "clarifai": "9.8.1",
-            "streamlit": "1.24.0",
-            "numpy": "*",
-            "matplotlib": "*",
-            "plotly": "*",
-            "clarifai-grpc": "*"
-        },
-        "main_file": "mandelbulb_clarifai.py",
-        "entry_points": {
-            "main": "mandelbulb_clarifai:main"
-        }
-    }
-
-    # Convert metadata to JSON string
-    metadata_json = json.dumps(metadata)
-    st.write("Metadata JSON:", metadata_json)  # Debugging line to check JSON content
+def render_create_module(auth_key, metadata):
+    st.write("Metadata JSON:", json.dumps(metadata))  # Debugging line to check JSON content
 
     # Create module with metadata
     try:
-        response = create_module_with_metadata(auth_key, metadata_json)
+        response = create_module_with_metadata(auth_key, metadata)
         if response.status_code == 200:
             st.success("Module created successfully!")
         else:
@@ -171,78 +83,160 @@ def render_create_module(auth_key, description):
     except Exception as e:
         st.error(f"Error while creating module: {str(e)}")
 
+def predict_with_clarifai(auth_key):
+    st.subheader("Clarifai Model Prediction")
+
+    # Input parameters for Clarifai prediction
+    model_id = "Proto-Labr-Nth-Guide"
+    image_url = st.text_input("Image URL")
+    api_key = auth_key  # Use the same API key
+
+    if st.button("Predict"):
+        # Setup gRPC channel
+        channel = ClarifaiChannel.get_grpc_channel()
+        stub = service_pb2_grpc.V2Stub(channel)
+
+        # Prepare request
+        request = service_pb2.PostModelOutputsRequest(
+            model_id=model_id,
+            inputs=[
+                resources_pb2.Input(data=resources_pb2.Data(image=resources_pb2.Image(url=image_url)))
+            ]
+        )
+
+        metadata = (('authorization', f'Key {api_key}'),)
+
+        try:
+            # Make prediction request
+            response = stub.PostModelOutputs(request, metadata=metadata)
+            st.write("Model prediction:", response)
+        except Exception as e:
+            st.error(f"Error during model prediction: {e}")
+
+# Define the evolutionary algorithm
+creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+creator.create("Individual", list, fitness=creator.FitnessMax)
+
+toolbox = base.Toolbox()
+toolbox.register("attr_float", np.random.uniform, -1, 1)
+toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=6)
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+toolbox.register("evaluate", lambda x: fractal_function(x[0], x[1], x[2], x[3], x[4], x[5]))
+toolbox.register("mate", tools.cxTwoPoint)
+toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
+toolbox.register("select", tools.selTournament, tournsize=3)
+
+def evolutionary_algorithm(population, toolbox, ngen, stats):
+    for gen in range(ngen):
+        offspring = algorithms.varAnd(population, toolbox, cxpb=0.5, mutpb=0.1)
+        fits = [toolbox.evaluate(ind) for ind in offspring]
+        for fit, ind in zip(fits, offspring):
+            ind.fitness.values = fit
+        population = toolbox.select(offspring, k=len(population))
+        stats.update(population)
+    return population
+
+# Function to evaluate individuals in evolutionary algorithm (taken from previous code)
+def fractal_function(a, b, c, d, e, f):
+    return (a * pi + b * phi + c * inv_pi) + (d * phi + e * inv_pi + f * pi)
+
+# Function to generate a tesseract for visualization
+def generate_tesseract():
+    n_dim = 4
+    n_cells = 2
+    tesseract = np.zeros((n_cells ** n_dim, n_dim))
+    for i in range(n_cells ** n_dim):
+        cell = np.zeros((n_dim,))
+        for j in range(n_dim):
+            cell[j] = (i // (n_cells ** j)) % n_cells
+        tesseract[i] = cell
+    return tesseract
+
+# Function to project the tesseract for visualization
+def project_tesseract(tesseract):
+    # Project the 4D tesseract to 3D
+    projected_tesseract = np.zeros((tesseract.shape[0], 3))
+    for i in range(tesseract.shape[0]):
+        projected_tesseract[i, 0] = tesseract[i, 0] - tesseract[i, 1]
+        projected_tesseract[i, 1] = tesseract[i, 2] + tesseract[i, 3]
+        projected_tesseract[i, 2] = tesseract[i, 0] + tesseract[i, 1]
+    return projected_tesseract
+
+# Function to visualize the projected tesseract
+def visualize_tesseract(projected_tesseract):
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(projected_tesseract[:, 0], projected_tesseract[:, 1], projected_tesseract[:, 2])
+    ax.set_title('Tesseract Projection')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    st.pyplot(fig)
+
+# Function to generate a fractal image (placeholder, replace with actual implementation)
+def generate_fractal():
+    # Replace with your fractal generation logic
+    pass
+
+# Main function to run the application
 def main():
-    """
-    Main function for the Mandelbulb Generator and Clarifai Module Creator.
-    """
     st.title("Mandelbulb Generator and Clarifai Module Creator")
 
-    # Input text for description
-    description = st.text_area("Description", value=(
-        "An advanced AI application that immerses users in the intricate virtual world of Mandelbulb fractals. "
-        "The core functionality revolves around generating, exploring, and manipulating 3D structures within the Mandelbulb space "
-        "under varying environmental parameters. This exploration leverages the mathematical constants Phi (the golden ratio), Pi, "
-        "and the inverse of Pi to simulate organic formations, pressure maintenance, and structural fracturing, respectively."
-    ))
-
-    # Sidebar inputs for Mandelbulb generation
+    # Sidebar inputs for Mandelbulb generation (example)
     grid_size = st.sidebar.number_input("Grid Size", min_value=10, max_value=100, value=50)
     power = st.sidebar.number_input("Power", min_value=2, max_value=10, value=8)
     bailout_radius = st.sidebar.number_input("Bailout Radius", min_value=1.0, max_value=10.0, value=2.0)
     max_iterations = st.sidebar.number_input("Max Iterations", min_value=10, max_value=1000, value=100)
 
-    # Generate and visualize Mandelbulb
+    # Generate and visualize Mandelbulb (example)
     if st.sidebar.button("Generate Mandelbulb"):
         mandelbulb_data = generate_mandelbulb(grid_size, power, bailout_radius, max_iterations)
-        save_mandelbulb_image(mandelbulb_data, filename="mandelbulb.png")
         visualize_mandelbulb(mandelbulb_data)
-        st.image("mandelbulb.png", caption="Generated Mandelbulb")
-        st.write("Description:", description)
+        save_mandelbulb_image(mandelbulb_data)
 
-    # Form for Clarifai module creation
-    with st.form(key="module_form"):
-        st.write("Clarifai Module Metadata")
-        name = st.text_input("Module Name", value="Module_PLN")
-        version = st.text_input("Version", value="PLN_1")
-        author = st.text_input("Author", value="Tehrelle Billups")
-        license = st.text_input("License", value="MIT")
-        keywords = st.text_area("Keywords", value="AI, Mandelbulb, Fractals, 3D Visualization, Mathematical Constants, Phi, Pi, Inverse Pi")
-        auth_key = st.text_input("Clarifai API Key", type="92186bbf0c584e378fea53af41f855b3")
+    # Evolutionary Algorithm Section (example)
+    st.header("Evolutionary Algorithm Example")
 
-        # Submit button
-        submit_button = st.form_submit_button(label="Create Module")
+    population_size = st.slider("Population Size", min_value=10, max_value=100, value=50)
+    num_generations = st.slider("Number of Generations", min_value=10, max_value=100, value=40)
 
-        if submit_button:
-            metadata = {
-                "name": name,
-                "description": description,
-                "version": version,
-                "author": author,
-                "license": license,
-                "keywords": keywords.split(", "),
-                "dependencies": {
-                    "clarifai": "9.8.1",
-                    "streamlit": "1.24.0",
-                    "numpy": "*",
-                    "matplotlib": "*",
-                    "plotly": "*",
-                    "clarifai-grpc": "*"
-                },
-                "main_file": "mandelbulb_clarifai.py",
-                "entry_points": {
-                    "main": "mandelbulb_clarifai:main"
-                }
-            }
+    # Run evolutionary algorithm
+    if st.button("Run Evolutionary Algorithm"):
+        population = toolbox.population(n=population_size)
+        hof = tools.HallOfFame(1)
+        stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats.register("avg", np.mean)
+        stats.register("std", np.std)
+        stats.register("min", np.min)
+        stats.register("max", np.max)
 
-            # Convert metadata to JSON string
-            metadata_json = json.dumps(metadata)
-            st.write("Metadata JSON:", metadata_json)  # Debugging line to check JSON content
+        population = evolutionary_algorithm(population, toolbox, num_generations, stats)
+        best_individual = hof[0]
+        st.write("Best Individual:", best_individual)
 
-            # Create module with metadata
-            render_create_module(auth_key, description)
+    # Tesseract Visualization Section (example)
+    st.header("Tesseract Visualization Example")
+
+    if st.button("Visualize Tesseract"):
+        tesseract = generate_tesseract()
+        projected_tesseract = project_tesseract(tesseract)
+        visualize_tesseract(projected_tesseract)
+
+    # Clarifai Section (example)
+    st.header("Clarifai Integration Example")
+
+    auth_key = st.text_input("Clarifai API Key")
+    if st.button("Create Module with Metadata"):
+        metadata = {"name": "My Module", "description": "Custom module for image recognition"}
+        render_create_module(auth_key, metadata)
+
+    if st.button("Predict with Clarifai"):
+        predict_with_clarifai(auth_key)
 
 if __name__ == "__main__":
     main()
+
 
 
 
