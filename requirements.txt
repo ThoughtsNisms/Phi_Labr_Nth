@@ -1,8 +1,6 @@
-import os
-import requests
-import json
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.graph_objs as go
-import streamlit as st
-from clarifai.client.model import Model
+clarifai==9.8.1
+clarifai-grpc
+numpy
+matplotlib
+plotly
+streamlit
