@@ -177,14 +177,14 @@ def main():
                     "main": "mandelbulb_clarifai:main"
                 }
             }
-            
+
             # Convert metadata to JSON string
             metadata_json = json.dumps(metadata)
             st.write("Metadata JSON:", metadata_json)  # Debugging line to check JSON content
             
             # Create module with metadata
             render_create_module(auth_key)
-    
+
     # Clarifai model prediction using gRPC
     channel = ClarifaiChannel.get_grpc_channel()
     stub = service_pb2_grpc.V2Stub(channel)
@@ -210,6 +210,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
